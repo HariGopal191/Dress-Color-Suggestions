@@ -1,2 +1,0 @@
-# proCV
-OpenCV Project
