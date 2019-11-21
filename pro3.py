@@ -1,24 +1,42 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Nov 10 11:32:23 2019
+
+@author: HariGopal V
+"""
+
+####################################################################################################################################################################################################################################################################################################################
+
+
 import os,sys
+''':
 if sys.version_info[0] == 2:
     print
 else:
     print("This Application supports only python --version less than '2.7' only")
     sys.exit(-1)
-import ConfigParser as cp
-import platform
+'''
+import configparser as cp
 import argparse as ap
 import os.path
 import mysql.connector
 import numpy 
+import pickle
+from sklearn.svm import SVC
 import cv2
-from PIL import Image, ImageDraw
+from PIL import Image
 import PIL
 from imutils import face_utils
 import argparse
-import imutils
 import dlib
-import random
-import fnmatch , os ,colorsys
+import fnmatch , os ,colorsys, random
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+
+
+
+####################################################################################################################################################################################################################################################################################################################
+
 
 def file_exists(fname):
         if os.path.isfile(fname):
@@ -27,12 +45,14 @@ def file_exists(fname):
                 print('file', fname, ' doesnt exist, it is a mandatory file - please check your setup, please check the config file you are using and update the respective field there,  exiting...')
                 sys.exit(-1)
 
+
 def conf_initiator(conf_file):
         config = cp.ConfigParser()
         config.read(conf_file)          #       change this to invoke inner modules
         #config._sections
         developer = dict(config._sections['mysqldb'])
         return  developer
+
 
 def parse_initiator():
         parser = ap.ArgumentParser()
@@ -45,7 +65,7 @@ def parse_initiator():
                 if results.conf_file:
                     conf_file=results.conf_file
                 else:
-                    conf_file="/home/harigopal/git/pvpsit/conf/mysql.conf"
+                    conf_file="/mnt/e/GIT/proCV/conf/mysql.conf"
                     file_exists(conf_file)
                 #print(conf_file)
                 #global conf_file
@@ -58,6 +78,9 @@ def parse_initiator():
         return results,conf_initiator(conf_file)
 
 
+####################################################################################################################################################################################################################################################################################################################
+
+
 #class_1
 class raw_image:
 
@@ -65,6 +88,7 @@ class raw_image:
     def __init__(self, dir_name):
         self.dir_name=dir_name
 
+####################################################################################################################################################################################################################################################################################################################
 
     def extract_properties_single_image (self,img,config_dict,insertion):
         my_db                   =   self.connect_to_pvpsit(config_dict)
@@ -88,28 +112,40 @@ class raw_image:
         #print(faces)
         features            =   self.color_skin_hair(faces[0],faces[1])
         #obtain (r,g,b) values of upper_lower_body dress
-        upper_color,lower_color,ubody_name,lwbody_name =   self.upper_lower_color(img,config_dict,file_name)
+        upper_color, lower_color, ubody_name, lwbody_name =   self.upper_lower_color(img, config_dict, file_name)
         #covert them into hsv
         upper_hsv          =   colorsys.rgb_to_hsv(upper_color[0]/255.,upper_color[1]/255.,upper_color[2]/255.) 
         lower_hsv          =   colorsys.rgb_to_hsv(lower_color[0]/255.,lower_color[1]/255.,lower_color[2]/255.)
         #print(upper_color,lower_color)
         up_hsv=int(upper_hsv[0]*360)
         lw_hsv=int(lower_hsv[0]*360)
-        features           =   features+(up_hsv,lw_hsv)
+        #category = ('Streetwear_Style', 'Ethnic_fashion_style', 'Formal_Office_Wear', 'Business_Casual', 'Evening_Black_Tie', 'Sports_Wear', 'Girly_Style', 'Rocker_Chic_Style', 'Skateboarders', 'Hip_Hop_Style', 'Casual_Chic_Style', 'Geeky_chic_Style', 'Military_style', 'Retro_Fashion', 'Flamboyant_style')
+        #location = ('East', 'West', 'North', 'South')
+        ub = ('white', 'medium_gray', 'charcoal_gray', 'light_gray', 'navy_blue', 'black', 'sky_blue', 'dark_blue', 'light_blue', 'blue', 'brown', 'dark_brown', 'tan_brown', 'khaki_brown', 'green', 'olive_green', 'spring_green', 'purple', 'lavender', 'violet', 'red', 'maroon', 'pink', 'yellow', 'gold', 'burnt_orange', 'orange')
+
+        lb = ('white', 'medium_gray', 'charcoal_gray', 'light_gray', 'navy_blue', 'black', 'dark_blue', 'light_blue', 'brown', 'dark_brown', 'tan_brown', 'khaki_brown', 'gold')
+
+        features           =   features+(ub[up_hsv%27], lb[lw_hsv%13])
         print(features)
-        suggestions         =   ((up_hsv,lw_hsv),)+self.return_suggestions(features,my_db)
+        suggestions         =   self.return_suggestions(features,my_db)
+        sugg1 = []
+        for i in suggestions:
+            print(i[2:])
+            sugg1.append(i[2], i[3])
         #print(suggestions)
         reg_name,inv_name,face_name       =   self.Shift_hue(img,file_name,config_dict,faces[2])
         #blend               =   self.Shift_hue(lwbody_name,file_name,config_dict,0)
+        '''
         suggestions1 = []
         for x in suggestions:
             if x[0]>30:
                 suggestions1.append(x)
         print(suggestions1)
+        
         for i in range(0,len(suggestions1)):
             #print(i)
             #amount = suggestions[i][0]-suggestions[0][0]
-            img2                =   self.hueShift(inv_name, suggestions1[i][0]/360.)
+            img2    =   self.hueShift(inv_name, suggestions1[i][0]/360.)
             img2.save(process_path+file_name+'_hue.jpg')
             img2 = cv2.imread(process_path+file_name+'_hue.jpg')
             img1 = cv2.imread(reg_name)
@@ -118,15 +154,16 @@ class raw_image:
             (c,r)= img2.shape[0:2]
 
             img2[0:faces[2] , 0:r] = img3
-
+        
             if insertion ==1:
                 cv2.imwrite('{}{}_hue{}.jpg'.format(output_path,file_name,i),img2)
             elif insertion ==2:
                 cv2.imwrite(frame_path+'frame_picture{}.png'.format(i),img2)
             elif insertion==3:
                 cv2.imwrite(frame_path+'frame_frame{}.png'.format(i),img2)
+        '''
         if insertion ==1:
-            return image_properties,features,suggestions1
+            return image_properties,features,sugg1
         elif insertion ==2:
             #print(image_properties)
             #print(features)
@@ -146,23 +183,6 @@ class raw_image:
         sys.exit(-1)
            
     
-
-    def insert_into_database(self,my_db,image_properties,features,suggestions):
-        self.insert_image_properties(image_properties, my_db)
-        #print(image_properties)
-        id_                 =   self.retrieve_id(image_properties[0],my_db)
-        features            =   features+(id_,)
-        self.insert_features(features,my_db)
-        #print(features)
-        fid                 =   self.retrieve_fid(id_,my_db)
-        for i in range(0,len(suggestions)):
-            suggestion         =   suggestions[i]+(fid,)
-            #print(suggestion)
-            self.insert_suggestions(suggestion,my_db)
-        return True
-
-
-
     def capture_frame_from_camera(self,config_dict):
         cam              =   cv2.VideoCapture(0)
         while True:
@@ -185,6 +205,183 @@ class raw_image:
         cv2.destroyAllWindows()
         sys.exit(-1)
 
+####################################################################################################################################################################################################################################################################################################################  
+        
+    #connect to mysql_pvpsit_table
+    def connect_to_pvpsit(self,config_dict):
+        #print("eeeeeeee",config_dict['host'])
+
+        mydb = mysql.connector.connect(
+            host=config_dict['host'],
+            user=config_dict['user'],
+            passwd=config_dict['passwd'],
+            database=config_dict['database']
+        )
+        return mydb
+
+
+    def insert_into_database(self,my_db,image_properties,features,suggestions):
+        self.insert_image_properties(image_properties, my_db)
+        #print(image_properties)
+        id_                 =   self.retrieve_id(image_properties[0],my_db)
+        features            =   features+(id_,)
+        self.insert_features(features,my_db)
+        #print(features)
+        fid                 =   self.retrieve_fid(id_,my_db)
+        for i in range(0,len(suggestions)):
+            suggestion         =   suggestions[i]+(fid,)
+            #print(suggestion)
+            self.insert_suggestions(suggestion,my_db)
+        return True
+
+    
+    #insert values #manually
+    def insert_image_properties(self,record,mydb):
+        mycursor = mydb.cursor()
+        sql = "INSERT INTO image_properties (path,size,type)  VALUES( %s, %s ,%s)"
+        mycursor.execute(sql, record)
+        mydb.commit()
+
+        
+    #obtain the id of the inserted image
+    def retrieve_id(self,img_path,mydb):
+        mycursor=mydb.cursor()
+        mycursor.execute("select id from image_properties where path = %s",(img_path,))
+        id1 = mycursor.fetchone()
+        return id1[0]
+      
+
+    def insert_features(self,features,mydb):
+        mycursor = mydb.cursor()
+        #print(features) 
+        sql = "INSERT INTO features (skin_tone, hair_color, upper_color, lower_color, id)  VALUES(%s ,%s ,%s, %s, %s)"
+
+        mycursor.execute(sql, features)
+
+        mydb.commit()
+        
+    #obtain the fid of the inserted image_features
+    def retrieve_fid(self,id_,mydb):
+        mycursor=mydb.cursor()
+        mycursor.execute("select fid from features where id = %s",(id_,))
+        id1 = mycursor.fetchone()
+        return id1[0]
+        
+    ###
+    def insert_suggestions(self,suggestions,mydb):
+        mycursor = mydb.cursor()
+        sql = "INSERT INTO suggestions (color_ub,color_lb,fid)  VALUES( %s, %s ,%s)"
+        mycursor.execute(sql, suggestions)
+        mydb.commit()
+
+
+
+####################################################################################################################################################################################################################################################################################################################  
+
+
+    #extract image properties
+    def extract_image_properties(self, img):
+        #cwd    =  os.getcwd()
+        #path   =  cwd + '/' + self.infile
+        size   =  os.path.getsize(img)
+        extension  =  os.path.splitext(img)[1][1:]
+        return (img, size, extension)
+
+
+        #ls
+    def listOfImages(self):
+        listOfFiles = os.listdir(self.dir_name)
+        pattern = "*.jpg"
+        list_img=[]
+        for entry in listOfFiles:
+            if fnmatch.fnmatch(entry, pattern):
+                list_img.append(entry)
+        return list_img
+
+
+    def face_shape(self,img,file_name,process_path):
+        #infile=raw_input("enter name of image:")+('.jpg')
+        # initialize dlib's face detector (HOG-based) and then create
+        # the facial landmark predictor
+        detector = dlib.get_frontal_face_detector()
+        predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
+
+        # load the input image, resize it, and convert it to grayscale
+        image = cv2.imread(img)
+        
+        #image = imutils.resize(image, width=500)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        frame = image
+        # detect faces in the grayscale image
+        rects = detector(gray, 1)
+        shape_name=process_path+file_name+'_shape.jpg'
+        skin_name=process_path+file_name+'_crop.jpg'
+        hair_name=process_path+file_name+'_hair.jpg'
+        # loop over the face detections
+        for (i, rect) in enumerate(rects):
+                # determine the facial landmarks for the face region, then
+                # convert the facial landmark (x, y)-coordinates to a NumPy
+                # array
+                shape = predictor(gray, rect)
+                shape = face_utils.shape_to_np(shape)
+                # convert dlib's rectangle to a OpenCV-style bounding box
+                # [i.e., (x, y, w, h)], then draw the face bounding box
+                (x, y, w, h) = face_utils.rect_to_bb(rect)
+                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                # show the face number
+                skin_tone = frame[y+2:y+h-2, x+2:x+w-2]
+                maxi=y+h+5
+                #print(maxi)
+                hair_color = frame[y-(h//2):y-(h//3) , x+(w//4):x+(3*w//4)]
+                #cv2.putText(image, "Face #{}".format(i + 1), (x - 10, y - 10),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                # loop over the (x, y)-coordinates for the facial landmarks
+                # and draw them on the image
+                #for (x, y) in shape:
+                    #cv2.circle(image, (x, y), 1, (0, 0, 255), -1)
+        cv2.imwrite(shape_name,image) 
+        cv2.imwrite(skin_name,skin_tone)
+        cv2.imwrite(hair_name,hair_color)
+
+        #shape=['oval','square','round','oblong','heart','diamond']
+        #shape1=random.randrange(len(shape))
+        return (skin_name,hair_name,maxi)
+    
+        
+    def color_skin_hair(self,infile1, infile2, numcolors=10, swatchsize=20, resize=150):
+        image1 = PIL.Image.open(infile1)
+        image1 = Image.Image.resize(image1,(resize, resize),resample=0)
+        result1 = Image.Image.convert(image1,'P', palette=PIL.Image.ADAPTIVE, colors=numcolors)
+        result1.putalpha(0)
+        
+        image2 = PIL.Image.open(infile2)
+        image2 = Image.Image.resize(image2,(resize, resize),resample=0)
+        result2 = Image.Image.convert(image2,'P', palette=PIL.Image.ADAPTIVE, colors=numcolors)
+        result2.putalpha(0)
+
+        color1,color2 = self.get_colors(result1,result2,resize)
+        hue1 = colorsys.rgb_to_hsv(color1[0],color1[1],color1[2])
+        hue2 = colorsys.rgb_to_hsv(color2[0],color2[1],color2[2])
+        #print(hue1,hue2) 
+        v=hue1[2]
+        v_h=hue2[2]
+        feat=()
+        if(v>210):
+            feat=feat+('fair',)
+        elif (v>128 and v<=210):
+            feat=feat+('normal',)
+        elif(v<=198):
+            feat=feat+('dark',)        
+        
+        #print(feat)
+        if(v_h<=80):
+            feat=feat+('Black',)
+        elif(v_h>80 and v_h<=167):
+            feat=feat+('Brown',)
+        elif(v_h>167):
+            feat=feat+('Blonde',)
+        return feat
+    
+
     def upper_lower_color(self,img,config_dict,file_name):
         image = PIL.Image.open(img)
         c,r = image.size
@@ -198,6 +395,10 @@ class raw_image:
         lower_body.save(lwbody_name)
         upper_color,lower_color = self.get_hue_color(img,ubody_name,lwbody_name,150)
         return (upper_color,lower_color,ubody_name,lwbody_name)
+
+
+
+####################################################################################################################################################################################################################################################################################################################
 
 
     def rgb_to_hsv(self,rgb):
@@ -262,8 +463,8 @@ class raw_image:
         rgb = self.hsv_to_rgb(hsv)
         return Image.fromarray(rgb, 'RGB')
 
-#apply the different hue_value_changes on the both upper & lower body
-#then join face + upper_body + lower_body
+    #apply the different hue_value_changes on the both upper & lower body
+    #then join face + upper_body + lower_body
     def Shift_hue(self,img, file_name,config_dict, face_chin):
         min_YCrCb = numpy.array([80,133,77],numpy.uint8)
         max_YCrCb = numpy.array([255,173,127],numpy.uint8)
@@ -296,8 +497,12 @@ class raw_image:
         return region_name,invert_name,face_name
 
 
+####################################################################################################################################################################################################################################################################################################################
+
+
     #suggestions
     def return_suggestions(self,features,mydb): 
+        '''
         mycursor=mydb.cursor()
         list_suggestions = ()
         mycursor.execute("select upper_color,lower_color from features where skin_tone = %s  and hair_color = %s",('Normal','Brown',))
@@ -307,148 +512,31 @@ class raw_image:
         for x in myresult:
             #print(x)
             list_suggestions+=(x,)
+        '''
+        features = ['fair', 'Black', 'white', 'white']
 
-        return list_suggestions
+        labelencoder = pickle.load(open('label_encoder.sav', 'rb'))
+        onehotencoder = pickle.load(open('onehot_encoder.sav', 'rb'))
+        sc = pickle.load(open('standard_scalar.sav', 'rb'))
         
-        #ls
-    def listOfImages(self):
-        listOfFiles = os.listdir(self.dir_name)
-        pattern = "*.jpg"
-        list_img=[]
-        for entry in listOfFiles:
-            if fnmatch.fnmatch(entry, pattern):
-                list_img.append(entry)
-        return list_img
-
-    #extract image properties
-    def extract_image_properties(self,img):
-        #cwd    =  os.getcwd()
-        #path   =  cwd + '/' + self.infile
-        size   =  os.path.getsize(img)
-        extension  =  os.path.splitext(img)[1][1:]
-        record    =  (img, size, extension)
-        return record
-        
-        
-    #connect to mysql_pvpsit_table
-    def connect_to_pvpsit(self,config_dict):
-        #print("eeeeeeee",config_dict['host'])
-
-        mydb = mysql.connector.connect(
-            host=config_dict['host'],
-            user=config_dict['user'],
-            passwd=config_dict['passwd'],
-            database=config_dict['database']
-        )
-
-        return mydb
-    
-    
-    #insert values #manually
-    def insert_image_properties(self,record,mydb):
-        mycursor = mydb.cursor()
-        sql = "INSERT INTO image_properties (path,size,type)  VALUES( %s, %s ,%s)"
-        mycursor.execute(sql, record)
-        mydb.commit()
-        
-        
-    #obtain the id of the inserted image
-    def retrieve_id(self,img_path,mydb):
-        mycursor=mydb.cursor()
-        mycursor.execute("select id from image_properties where path = %s",(img_path,))
-        id1 = mycursor.fetchone()
-        return id1[0]
-      
-###
-    def insert_suggestions(self,suggestions,mydb):
-        mycursor = mydb.cursor()
-        sql = "INSERT INTO suggestions (color_ub,color_lb,fid)  VALUES( %s, %s ,%s)"
-        mycursor.execute(sql, suggestions)
-        mydb.commit()
+        X = labelencoder.fit_transform(list(features)).reshape(1, -1)
+        X = onehotencoder.transform(X).toarray()
+        X = sc.transform(X)
 
 
-    def face_shape(self,img,file_name,process_path):
-        #infile=raw_input("enter name of image:")+('.jpg')
-        # initialize dlib's face detector (HOG-based) and then create
-        # the facial landmark predictor
-        detector = dlib.get_frontal_face_detector()
-        predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
+        # load the model from disk
+        loaded_model = pickle.load(open('model_1.sav', 'rb'))
+        result = loaded_model.predict(X)
+        print(result)
+        data = numpy.load('dataset_small_13_clusters.npz', allow_pickle=True)
+        clusters = list(data['clusters'])
+        cluster = numpy.array(clusters)[result]
+        c = list(cluster)[0]
+        c = random.sample(c, 15)
+        return c
 
-        # load the input image, resize it, and convert it to grayscale
-        image = cv2.imread(img)
-        
-        #image = imutils.resize(image, width=500)
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        frame = image
-        # detect faces in the grayscale image
-        rects = detector(gray, 1)
-        shape_name=process_path+file_name+'_shape.jpg'
-        skin_name=process_path+file_name+'_crop.jpg'
-        hair_name=process_path+file_name+'_hair.jpg'
-        # loop over the face detections
-        for (i, rect) in enumerate(rects):
-                # determine the facial landmarks for the face region, then
-                # convert the facial landmark (x, y)-coordinates to a NumPy
-                # array
-                shape = predictor(gray, rect)
-                shape = face_utils.shape_to_np(shape)
-                # convert dlib's rectangle to a OpenCV-style bounding box
-                # [i.e., (x, y, w, h)], then draw the face bounding box
-                (x, y, w, h) = face_utils.rect_to_bb(rect)
-                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                # show the face number
-                skin_tone = frame[y+2:y+h-2, x+2:x+w-2]
-                maxi=y+h+5
-                #print(maxi)
-                hair_color = frame[y-(h/2):y-(h/3) , x+(w/4):x+(3*w/4)]
-                #cv2.putText(image, "Face #{}".format(i + 1), (x - 10, y - 10),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                # loop over the (x, y)-coordinates for the facial landmarks
-                # and draw them on the image
-                #for (x, y) in shape:
-                    #cv2.circle(image, (x, y), 1, (0, 0, 255), -1)
-        cv2.imwrite(shape_name,image) 
-        cv2.imwrite(skin_name,skin_tone)
-        cv2.imwrite(hair_name,hair_color)
 
-        #shape=['oval','square','round','oblong','heart','diamond']
-        #shape1=random.randrange(len(shape))
-        return (skin_name,hair_name,maxi)
-    
-        
-    def color_skin_hair(self,infile1, infile2, numcolors=10, swatchsize=20, resize=150):
-        image1 = PIL.Image.open(infile1)
-        image1 = Image.Image.resize(image1,(resize, resize),resample=0)
-        result1 = Image.Image.convert(image1,'P', palette=PIL.Image.ADAPTIVE, colors=numcolors)
-        result1.putalpha(0)
-        
-        image2 = PIL.Image.open(infile2)
-        image2 = Image.Image.resize(image2,(resize, resize),resample=0)
-        result2 = Image.Image.convert(image2,'P', palette=PIL.Image.ADAPTIVE, colors=numcolors)
-        result2.putalpha(0)
-
-        color1,color2 = self.get_colors(result1,result2,resize)
-        hue1 = colorsys.rgb_to_hsv(color1[0],color1[1],color1[2])
-        hue2 = colorsys.rgb_to_hsv(color2[0],color2[1],color2[2])
-        #print(hue1,hue2) 
-        v=hue1[2]
-        v_h=hue2[2]
-        feat=()
-        if(v>210):
-            feat=feat+('Fair',)
-        elif (v>128 and v<=210):
-            feat=feat+('Normal',)
-        elif(v<=198):
-            feat=feat+('Dark',)        
-        
-        #print(feat)
-        if(v_h<=80):
-            feat=feat+('Black',)
-        elif(v_h>80 and v_h<=167):
-            feat=feat+('Brown',)
-        elif(v_h>167):
-            feat=feat+('Blonde',)
-        return feat
-       
+####################################################################################################################################################################################################################################################################################################################
 
 
     def get_hue_color(self,img,infile1,infile2,resize,numcolors=10):
@@ -475,7 +563,7 @@ class raw_image:
     def get_colors(self,result1,result2,resize):
         colors1 = result1.getcolors(resize*resize)
         colors1.sort()
-        list1=[x[1] for x in colors1]
+        #list1=[x[1] for x in colors1]
         face=[x[0] for x in colors1]
         #print(list1,face)
         list2=[x[0]*x[1][0] for x in colors1]
@@ -493,7 +581,7 @@ class raw_image:
         colors2 = result2.getcolors(resize*resize)
         colors2.sort()
         
-        list5=[x[1] for x in colors2]
+        #list5=[x[1] for x in colors2]
         hair=[x[0] for x in colors2]
         list6=[x[0]*x[1][0] for x in colors2]
         list7=[x[0]*x[1][1] for x in colors2]
@@ -508,22 +596,8 @@ class raw_image:
         return (r,b,g),(r_h,b_h,g_h)
         
 
-    def insert_features(self,features,mydb):
-        mycursor = mydb.cursor()
-        #print(features) 
-        sql = "INSERT INTO features (skin_tone,hair_color,upper_color,lower_color,id)  VALUES(%s ,%s ,%s, %s ,%s)"
+####################################################################################################################################################################################################################################################################################################################
 
-        mycursor.execute(sql, features)
-
-        mydb.commit()
-        
-    #obtain the fid of the inserted image_features
-    def retrieve_fid(self,id_,mydb):
-        mycursor=mydb.cursor()
-        mycursor.execute("select fid from features where id = %s",(id_,))
-        id1 = mycursor.fetchone()
-        return id1[0]
-        
         
 #main
 if __name__ == '__main__':       
@@ -552,3 +626,6 @@ if __name__ == '__main__':
     else:
         print("--bulk_insertion or --single_image path is not specified.")
         sys.exit(-1)
+
+
+####################################################################################################################################################################################################################################################################################################################
