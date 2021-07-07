@@ -3,12 +3,16 @@ Dress-Color Suggesting Interface Based on Image-Processing (Python)(OpenCV)
 
 Abstract             
 
-     In shopping-malls and dress-stores people who are shopping the dresses depends on the color suggestions given by shop-suppliers and friends or some personal interests. But to make it more professional and extend the color-combination options for the dresses we collect several professional opinions from all around the world and based on the buyer’s physical appearance and other factors - we offer an interface which provides suitable set of color-combinations for dress chosen driven AI(Artificial Intelligence) directed by ML(Machine Learning).
+   In shopping-malls and dress-stores people who are shopping the dresses depends on the color suggestions given by shop-suppliers and friends or some personal
+interests. But to make it more professional and extend the color-combination options for the dresses we collect several professional opinions from all around the world
+and based on the buyer’s physical appearance and other factors - we offer an interface which provides suitable set of color-combinations for dress chosen driven 
+AI(Artificial Intelligence) directed by ML(Machine Learning).
      
      
 Background art of the work	
 
-     Earlier there is an approach for dress-color suggesting interfaces in developed - countries. Using OpenCV-Python Package used for Image-Processing we wanted to develop a similar product using some predefined and self-created algorithms for several Image-detail extractions like :
+   Earlier there is an approach for dress-color suggesting interfaces in developed - countries. Using OpenCV-Python Package used for Image-Processing we wanted to
+develop a similar product using some predefined and self-created algorithms for several Image-detail extractions like :
 -	Face Detection		(pre-Defined but Customized to our requirement)
 -	Color Detection		(Self-Created)
 -	Face-Color-Detection	(Self-Created)
@@ -24,16 +28,22 @@ And finally, we use an Artificial-Machine-Learning-intelligence to give-up with 
                               
 Introduction 		
 
-    In our day to day life many of us are willing to buy dresses of different styles and themes. But confused which color suits them and dress best.so, our platform provides a wide-range of professional suggestions from all around the world based on the client/customer features. Python-OpenCV is a great library/package that provides us a great set of modules which can help in feature extraction.
+   In our day to day life many of us are willing to buy dresses of different styles and themes. But confused which color suits them and dress best.so, our platform
+provides a wide-range of professional suggestions from all around the world based on the client/customer features. Python-OpenCV is a great library/package that
+provides us a great set of modules which can help in feature extraction.
 
-OpenCV (Open Source Computer Vision Library) is released under a BSD license and hence it’s free for both academic and commercial use. It has C++, Python and Java interfaces and supports Windows, Linux, Mac OS, iOS and Android. OpenCV was designed for computational efficiency and with a strong focus on real-time applications. Written in optimized C/C++, the library can take advantage of multi-core processing. Enabled with OpenCL, it can take advantage of the hardware acceleration of the underlying heterogeneous compute platform.
+OpenCV (Open Source Computer Vision Library) is released under a BSD license and hence it’s free for both academic and commercial use. It has C++, Python and Java
+interfaces and supports Windows, Linux, Mac OS, iOS and Android. OpenCV was designed for computational efficiency and with a strong focus on real-time applications.
+Written in optimized C/C++, the library can take advantage of multi-core processing. Enabled with OpenCL, it can take advantage of the hardware acceleration of the
+underlying heterogeneous compute platform.
 
 Anaconda Distribution contains conda and Anaconda Navigator, as well as Python and hundreds of scientific packages. When you installed Anaconda, you installed all these too. You can try both conda and Navigator to see which is right for you to manage your packages and environments. You can even switch between them, and the work you do with one can be viewed in the other.
                                                      
 
 Aim 
 
-    Our main aim is to provide a platform that provides a wide-range of professional dress-color-suggestions from all around the world based on the client/customer physical appearance and structure.  
+   Our main aim is to provide a platform that provides a wide-range of professional dress-color-suggestions from all around the world based on the client/customer
+physical appearance and structure.  
 
 Packages and methods 
 
